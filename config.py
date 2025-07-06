@@ -30,8 +30,8 @@ ADMINS = [821215952, 7475545668]  # Default is just the owner, add more like [82
 #--------------------------------------------
 PORT = os.environ.get("PORT", "8080")
 #--------------------------------------------
-DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://FileStorexeon1:FileStorexeon1@cluster0.gu4nrph.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-DB_NAME = os.environ.get("DATABASE_NAME", "Xeonfilestore01")
+DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://XeonFileStoreBot1:XeonFileStoreBot1@cluster0.apm7es5.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+DB_NAME = os.environ.get("DATABASE_NAME", "MovieSeries")
 # --------------------------------------------
 FSUB_LINK_EXPIRY = int(getenv("FSUB_LINK_EXPIRY", "10"))  # 0 means no expiry
 BAN_SUPPORT = os.environ.get("BAN_SUPPORT", "https://t.me/CodeflixSupport")
