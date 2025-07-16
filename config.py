@@ -48,8 +48,8 @@ RANDOM_IMAGES = [
     "https://myappme.shop/img/file_304.jpg"
 ]
 
-SHORTLINK_URL = os.environ.get("SHORTLINK_URL", "publicearn.online")
-SHORTLINK_API = os.environ.get("SHORTLINK_API", "de08290b12d9e34191f3a057070a50a18187fff3")
+SHORTLINK_URL = os.environ.get("SHORTLINK_URL", "linkshortify.com")
+SHORTLINK_API = os.environ.get("SHORTLINK_API", "8428e6417e6542077d38b107d6c80764485faef2")
 TUT_VID = os.environ.get("TUT_VID", "https://t.me/hwdownload/3")
 SHORT_MSG = """<b>📊 ʜᴇʏ ʙʀᴏ/sɪs, 
 
