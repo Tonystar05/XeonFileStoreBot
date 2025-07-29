@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode, ChatAction
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
+from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, UserNotParticipant
 from bot import Bot
 from config import *
 from helper_func import *
@@ -36,7 +36,6 @@ MESSAGE_EFFECT_IDS = [
     5104858069142078462,  # 👎
     5046589136895476101,  # 💩
 ]
-
 
 # Cache for chat data
 chat_data_cache = {}
@@ -322,13 +321,13 @@ async def send_welcome_message(client: Client, message: Message) -> None:
 
 async def not_joined(client: Client, message: Message) -> None:
     """Handle users who haven't joined required channels"""
-    temp = await message.reply("<blockquote><b>Checking Subscription...</b></blockquote>")
-    user_id = message.from_user.id
-    buttons = []
-    settings = await db.get_settings()
-    count = 0
-    
     try:
+        temp = await message.reply("<blockquote><b>Checking Subscription...</b></blockquote>")
+        user_id = message.from_user.id
+        buttons = []
+        settings = await db.get_settings()
+        count = 0
+        
         all_channels = await db.show_channels()
         if not settings.get('FORCE_SUB_ENABLED', True) or not all_channels:
             await temp.delete()
@@ -341,21 +340,15 @@ async def not_joined(client: Client, message: Message) -> None:
             mode = await db.get_channel_mode(chat_id)
             await message.reply_chat_action(ChatAction.TYPING)
             
-            if not await is_sub(client, user_id, chat_id):
+            try:
+                # First verify we can access the channel
                 try:
-                    if chat_id in chat_data_cache:
-                        data = chat_data_cache[chat_id]
-                    else:
-                        try:
-                            data = await client.get_chat(chat_id)
-                            chat_data_cache[chat_id] = data
-                        except Exception as e:
-                            if "USERNAME_NOT_OCCUPIED" in str(e):
-                                await db.rem_channel(chat_id)
-                                continue
-                            else:
-                                raise e
-
+                    data = await client.get_chat(chat_id)
+                except Exception as e:
+                    print(f"Can't access channel {chat_id}: {e}")
+                    continue
+                    
+                if not await is_sub(client, user_id, chat_id):
                     name = data.title
 
                     if mode == "on":
@@ -376,15 +369,20 @@ async def not_joined(client: Client, message: Message) -> None:
                     buttons.append([InlineKeyboardButton(text=f"{name}", url=link)])
                     count += 1
                     await temp.edit(f"<blockquote><b>Checking {count}...</b></blockquote>")
-                except Exception as e:
-                    continue
+            except Exception as e:
+                print(f"Error processing channel {chat_id}: {e}")
+                continue
                     
         if count == 0:
             await temp.delete()
             return await start_command(client, message)
 
-        buttons.append([InlineKeyboardButton(text='Check again', callback_data="check_sub")])
-            
+        # Add Retry button that will resend the force sub message
+        buttons.append([InlineKeyboardButton(
+            text='♻️ Tʀʏ Aɢᴀɪɴ',
+            callback_data=f"force_sub_{user_id}"
+        )])
+        
         await message.reply_photo(
             photo=FORCE_PIC,
             caption=FORCE_MSG.format(
@@ -397,24 +395,40 @@ async def not_joined(client: Client, message: Message) -> None:
             reply_markup=InlineKeyboardMarkup(buttons))
             
     except Exception as e:
-        await temp.edit(f"<blockquote><b>Error, contact developer @Mehediyt69\nReason: {e}</b></blockquote>")
-        await asyncio.sleep(5)
-        await temp.delete()
-        return await start_command(client, message)
+        print(f"Error in not_joined: {e}")
+        try:
+            await message.reply_text(
+                "You need to join our channels to use this bot.\n\n"
+                "Please try again after joining.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton(
+                        text='♻️ Tʀʏ Aɢᴀɪɴ',
+                        callback_data=f"force_sub_{message.from_user.id}"
+                    )]
+                ])
+            )
+        except Exception as e:
+            print(f"Error sending fallback message: {e}")
     finally:
-        await temp.delete()
+        try:
+            await temp.delete()
+        except:
+            pass
 
-@Bot.on_callback_query(filters.regex(r"^check_sub"))
-async def check_sub_callback(client: Client, callback: CallbackQuery) -> None:
-    """Check if user has joined required channels"""
-    user_id = callback.from_user.id
-    message = callback.message
-    if await is_subscribed(client, user_id):
-        await message.delete()
-        await start_command(client, callback.message)
-    else:
-        await callback.answer("You still haven't joined all required channels. Please join and try again.")
-        await not_joined(client, message)
+@Bot.on_callback_query(filters.regex(r"^force_sub_"))
+async def force_sub_callback(client: Client, callback: CallbackQuery):
+    """Handle force sub retry button"""
+    try:
+        user_id = int(callback.data.split("_")[2])
+        if callback.from_user.id != user_id:
+            await callback.answer("This button is not for you!", show_alert=True)
+            return
+            
+        await callback.answer()
+        await not_joined(client, callback.message)
+    except Exception as e:
+        print(f"Error in force_sub_callback: {e}")
+        await callback.answer("An error occurred. Please try /start again.", show_alert=True)
 
 @Bot.on_message(filters.command('myplan') & filters.private)
 async def check_plan(client: Client, message: Message) -> None:
